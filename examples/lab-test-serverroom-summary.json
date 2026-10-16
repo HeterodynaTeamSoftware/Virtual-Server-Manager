@@ -1,0 +1,16 @@
+{
+  "name": "LAB-DC-01",
+  "racks_total": 16,
+  "compute_racks": 12,
+  "core_racks": 2,
+  "storage_racks": 2,
+  "features": [
+    "światłowód OM4",
+    "LAN Cat6A",
+    "patchpanele",
+    "switche TOR",
+    "core 100G",
+    "storage/backup"
+  ],
+  "notes": "Dane testowe dodane do Virtual Server Manager v88."
+}

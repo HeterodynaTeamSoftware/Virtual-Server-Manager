@@ -1,0 +1,28 @@
+{
+  "name": "virtual-server-manager",
+  "version": "0.90.0",
+  "description": "Virtual Server Manager — centralny panel do zarządzania serwerami, monitoringiem, siecią i operacjami administracyjnymi.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "dcim",
+    "rack",
+    "network",
+    "serverroom"
+  ],
+  "author": "Heterodyna Team Software",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "net-snmp": "^3.20.0",
+    "pg": "^8.13.1",
+    "xterm": "^5.5.0",
+    "xterm-addon-fit": "^0.10.0",
+    "socket.io": "^4.8.1",
+    "node-pty": "^1.0.0"
+  }
+}

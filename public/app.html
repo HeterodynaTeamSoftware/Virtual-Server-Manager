@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%230a1a3f%22/%3E%3Cpath d=%22M3 4h10v8H3z%22 fill=%22%23ffffff%22 opacity=%220.9%22/%3E%3Cpath d=%22M5 6h6v1H5zm0 2h6v1H5zm0 2h4v1H5z%22 fill=%22%230a1a3f%22/%3E%3C/svg%3E">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Server Manager</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">◫ Virtual Server Manager</div>
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-view="dashboard">🏠 Panel główny</button>
+        <button class="nav-link" data-view="rooms">🏢 Serwerownie</button>
+        <button class="nav-link" data-view="rack">🗄️ Szafa rack</button>
+        <button class="nav-link" data-view="map">🗺️ Mapa połączeń 2D</button>
+        <button class="nav-link" data-view="report">🧾 Raport techniczny</button>
+        <button class="nav-link" data-view="datacenters">🌍 Multi-datacenter</button>
+        <button class="nav-link" data-view="flow">📶 Flow telemetry</button>
+        <button class="nav-link" data-view="collectors">📡 Kolektory</button>
+        <button class="nav-link" data-view="conflicts">⚠️ Konflikty IP / VLAN</button>
+        <button class="nav-link" data-view="postgres">🗃️ PostgreSQL</button>
+        <button class="nav-link" data-view="roles">👥 Role i uprawnienia</button>
+        <button class="nav-link" data-view="map3d">🧊 Mapa 3D</button>
+        <button class="nav-link" data-view="dependencies">🧩 Zależności usług</button>
+        <button class="nav-link" data-view="applications">📦 Aplikacje</button>
+        <button class="nav-link" data-view="autodoc">📝 Auto docs</button>
+        <button class="nav-link" data-view="collectorPerf">📊 Dashboard collectorów</button>
+        <button class="nav-link" data-view="cable">🪢 Trasy kablowe</button>
+        <button class="nav-link" data-view="snmp">🔌 SNMP / interfejsy</button>
+        <button class="nav-link" data-view="ops">🛠️ Operacje hosta</button>
+        <button class="nav-link" data-view="audit">📜 Dziennik zmian</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="userBox" class="muted"></div>
+        <label class="theme-picker-label"><span>Motyw UI</span>
+          <select id="themeSelect">
+            <option value="dark">🌙 Ciemny</option>
+            <option value="light">☀️ Jasny</option>
+            <option value="nightshift">🌆 Filtr niebieskiego</option>
+            <option value="contrast">🧊 Wysoki kontrast</option>
+          </select>
+        </label>
+        <div id="healthBox" class="health-pill">API: sprawdzanie…</div>
+        <button id="logoutBtn" class="btn btn-secondary btn-block">Wyloguj</button>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">🏠 Panel główny</h1>
+          <p id="pageSubtitle" class="muted">Podgląd infrastruktury i konfiguracji.</p>
+        </div>
+        <div class="topbar-actions horizontal-actions">
+          <input id="globalSearchInput" class="search-input" placeholder="Szukaj: IP, VLAN, szafa, urządzenie">
+          <button id="quickAddRoomBtn" class="btn btn-primary">Dodaj serwerownię</button>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active">
+        <div id="statsGrid" class="stats-grid"></div>
+        <div class="two-col">
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div class="panel-title">Przegląd serwerowni</div>
+              <div class="muted">Szybki skok do wybranej szafy</div>
+            </div>
+            <div id="roomsTableWrap"></div>
+          </div>
+          <div class="stack gap-md">
+            <div class="panel-card">
+              <div class="panel-head-row">
+                <div class="panel-title">Monitoring — podgląd</div>
+                <div class="inline-actions">
+                  <button id="runMonitoringScanBtn" class="btn btn-secondary btn-small">Skanuj teraz</button>
+                  <a href="/api/data/export" class="btn btn-secondary btn-small">Eksport JSON</a>
+                  <label class="btn btn-secondary btn-small file-btn">Import JSON<input id="importJsonInput" type="file" accept="application/json" hidden></label>
+                </div>
+              </div>
+              <div id="monitoringScanMeta" class="muted small"></div>
+              <div id="monitoringSummary" class="metric-grid"></div>
+              <div class="subsection-title">Historia odpowiedzi (ping / latency)</div>
+              <div id="monitoringHistoryChart" class="monitoring-history-chart"></div>
+              <div id="monitoringDeviceTable" class="monitoring-device-table"></div>
+              <div class="subsection-title">Zdarzenia monitoringu</div>
+              <div id="monitoringEventsList" class="audit-list compact-audit-list"></div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-title">Ostrzeżenia projektowe</div>
+              <div id="warningList" class="room-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roomsView" class="view">
+        <div class="two-col">
+          <div class="panel-card">
+            <div class="panel-head-row"><div class="panel-title" id="roomFormTitle">Dodaj serwerownię</div><button type="button" id="cancelRoomEditBtn" class="btn btn-secondary btn-small hidden">Anuluj edycję</button></div>
+            <form id="roomForm" class="room-form">
+              <input type="hidden" name="roomId" value="">
+              <label><span>Numer / nazwa</span><input name="roomNumber" required placeholder="23"></label>
+              <label><span>Budynek</span><input name="building" required placeholder="Budynek A"></label>
+              <label><span>Typ</span>
+                <select name="roomType">
+                  <option>Serwerownia główna</option>
+                  <option>Serwerownia zapasowa</option>
+                  <option>Serwerownia dodatkowa</option>
+                  <option>Szafa pośrednia</option>
+                  <option>UPS</option>
+                </select>
+              </label>
+              <label><span>Liczba rzędów</span><input id="rowCountInput" type="number" min="1" max="20" value="2"></label>
+              <label><span>Szerokość (m)</span><input name="width" type="number" min="1" step="0.1" value="8"></label>
+              <label><span>Głębokość (m)</span><input name="depth" type="number" min="1" step="0.1" value="5"></label>
+              <label><span>Wysokość (m)</span><input name="height" type="number" min="1" step="0.1" value="3"></label>
+              <div class="span-2">
+                <div class="subsection-title">Konfiguracja rzędów</div>
+                <div id="rowConfigEditor" class="row-config-editor"></div>
+              </div>
+              <label class="span-2"><span>Opis</span><textarea name="note" rows="4" placeholder="Opis techniczny pomieszczenia"></textarea></label>
+              <div class="span-2 form-actions"><button type="submit" class="btn btn-primary">Zapisz serwerownię</button></div>
+            </form>
+          </div>
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div class="panel-title">Lista serwerowni</div>
+              <div class="muted">Możesz usunąć lub otworzyć widok szafy</div>
+            </div>
+            <div id="serverRoomsList" class="room-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="rackView" class="view">
+        <div class="rack-toolbar">
+          <label>
+            <span>Serwerownia</span>
+            <select id="rackRoomSelect"></select>
+          </label>
+          <label>
+            <span>Szafa</span>
+            <select id="rackSelect"></select>
+          </label>
+          <label>
+            <span>Filtr urządzeń</span>
+            <input id="rackFilterInput" placeholder="np. switch, serwer, vlan 10">
+          </label>
+          <button id="toggleRackSideBtn" class="btn btn-secondary">Pokaż tył szafy</button>
+          <button id="showAddDeviceBtn" class="btn btn-primary">Dodaj urządzenie</button>
+        </div>
+
+        <div class="panel-card rack-page-card">
+          <div class="panel-head-row rack-page-head">
+            <div>
+              <div class="panel-title">Panel szafy rack</div>
+              <div class="muted">Jedna tabela lub jeden główny widok na zakładkę. Bez rozjeżdżania układu.</div>
+            </div>
+            <button type="button" id="openDeviceInspectorModalBtn" class="btn btn-secondary btn-small">Pokaż duży panel</button>
+          </div>
+          <div class="tab-bar rack-main-tabs" id="rackMainTabs">
+            <button type="button" class="tab-btn active" data-tab-group="rackpage" data-tab-target="rack-page-layout">Widok szafy</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-inspector">Inspektor</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-port">Porty</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-connection">Połączenia</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-power">Zasilanie A/B</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-snmp">🔌 SNMP / interfejsy</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-topology">Topologia</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-uplinks">Uplinki</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-capacity">Pojemność</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-routing">L3 / VLAN</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-heatmap">Porty – heatmapa</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-traffic">Traffic</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-top-talkers">Top Talkers</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-system-events">System Events</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-hardware">Hardware</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-port-history">Historia portów</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-snmp-history">Polling SNMP</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-uplinks-global">Uplinki globalne</button>
+            <button type="button" class="tab-btn" data-tab-group="rackpage" data-tab-target="rack-page-patch-logic">Patch panel</button>
+          </div>
+
+          <div class="tab-panel active" data-tab-group="rackpage" id="rack-page-layout">
+            <div class="panel-card panel-card-embedded rack-visual-card rack-visual-card-full">
+              <div class="panel-head-row">
+                <div>
+                  <div id="rackTitle" class="panel-title">Widok szafy</div>
+                  <div class="muted">Duży widok szafy. Elementy U są dopasowane do szerokości ramy i nie wychodzą poza obrys.</div>
+                </div>
+                <div id="rackOccupancyBadge" class="badge">0% zajętości</div>
+              </div>
+              <div id="rackCanvas" class="rack-canvas rack-canvas--wide"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-inspector">
+            <div class="panel-card panel-card-embedded rack-full-panel">
+              <div id="deviceInspectorBox" class="device-inspector-box device-inspector-box-full"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-port">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Porty</div>
+                  <div class="muted">Jedna tabela portów dla bieżącej szafy + niżej formularz edycji wybranego portu.</div>
+                </div>
+                <div id="portSummaryBadge" class="badge">0 portów</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Port</th><th>Status</th><th>VLAN</th><th>IP</th><th>Szybkość</th><th>PoE</th><th>Cel</th></tr>
+                  </thead>
+                  <tbody id="portTableBody"><tr><td colspan="8" class="muted">Brak danych.</td></tr></tbody>
+                </table>
+              </div>
+              <div class="subsection-title">Edycja wybranego portu</div>
+              <form id="portForm" class="form-grid-2 form-grid-2-tight">
+                <label><span>Urządzenie</span><select id="portDeviceSelect"></select></label>
+                <label><span>Port</span><select id="portNumberSelect"></select></label>
+                <label class="field-span-2"><span>Cel połączenia</span><input name="target" placeholder="Budynek X / Szafa 2 / Port 1"></label>
+                <label><span>Adres IP</span><input name="ip" placeholder="192.168.1.10"></label>
+                <label><span>VLAN</span><input name="vlan" placeholder="10"></label>
+                <label><span>Podsieć</span><input name="subnet" placeholder="192.168.1.0/24"></label>
+                <label><span>Maska</span><input name="mask" placeholder="255.255.255.0"></label>
+                <label><span>Brama</span><input name="gateway" placeholder="192.168.1.1"></label>
+                <label><span>Status</span>
+                  <select name="status">
+                    <option value="up">up</option>
+                    <option value="down">down</option>
+                    <option value="error">error</option>
+                  </select>
+                </label>
+                <label><span>Kolor patchcordu</span><input name="cableColor" type="color" value="#22c55e"></label>
+                <div class="form-actions field-span-2 split-actions">
+                  <button type="submit" class="btn btn-primary">Zapisz port</button>
+                  <button type="button" id="disconnectPortBtn" class="btn btn-secondary">Rozłącz wybrany port</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-connection">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Połączenia</div>
+                  <div class="muted">Jedna tabela połączeń dla bieżącej szafy + niżej formularz połączenia port-port.</div>
+                </div>
+                <div id="connectionSummaryBadge" class="badge">0 połączeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table rack-management-table">
+                  <thead>
+                    <tr><th>Źródło</th><th>Port lokalny</th><th>Cel</th><th>Port docelowy</th><th>Medium</th><th>Kabel</th><th>Długość</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="connectionTableBody"><tr><td colspan="8" class="muted">Brak połączeń.</td></tr></tbody>
+                </table>
+              </div>
+              <div class="subsection-title">Nowe połączenie port-port</div>
+              <form id="connectionForm" class="form-grid-2 form-grid-2-tight">
+                <div class="subsection-title field-span-2 no-margin">Lokalny port</div>
+                <label><span>Urządzenie</span><select id="connLeftDeviceSelect"></select></label>
+                <label><span>Port</span><select id="connLeftPortSelect"></select></label>
+                <div class="subsection-title field-span-2">Zdalny port</div>
+                <label><span>Serwerownia</span><select id="connRightRoomSelect"></select></label>
+                <label><span>Szafa</span><select id="connRightRackSelect"></select></label>
+                <label><span>Urządzenie</span><select id="connRightDeviceSelect"></select></label>
+                <label><span>Port</span><select id="connRightPortSelect"></select></label>
+                <label><span>Kolor patchcordu</span><input name="cableColor" type="color" value="#22c55e"></label>
+                <label><span>Medium</span>
+                  <select name="medium">
+                    <option value="miedź">miedź</option>
+                    <option value="światłowód">światłowód</option>
+                    <option value="uplink">uplink</option>
+                  </select>
+                </label>
+                <label><span>Etykieta kabla</span><input name="cableLabel" placeholder="PC-A-001"></label>
+                <label><span>Długość kabla (m)</span><input name="cableLengthM" type="number" min="0" step="0.1" placeholder="2"></label>
+                <label class="field-span-2"><span>Trasa kablowa</span><select id="connRouteSelect" name="routeId"><option value="">Brak trasy</option></select></label>
+                <div class="form-actions field-span-2"><button type="submit" class="btn btn-primary">Połącz porty</button></div>
+              </form>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-power">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Zasilanie A/B</div>
+                  <div class="muted">Jedna tabela zasilania dla urządzeń w bieżącej szafie + niżej formularz edycji.</div>
+                </div>
+                <div id="powerSummaryBadge" class="badge">0 urządzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Pozycja</th><th>Zasilanie A</th><th>Gniazdo A</th><th>Zasilanie B</th><th>Gniazdo B</th><th>Redundancja</th></tr>
+                  </thead>
+                  <tbody id="powerTableBody"><tr><td colspan="7" class="muted">Brak danych.</td></tr></tbody>
+                </table>
+              </div>
+              <div class="subsection-title">Edycja zasilania</div>
+              <form id="powerForm" class="form-grid-2 form-grid-2-tight">
+                <label class="field-span-2"><span>Urządzenie</span><select id="powerDeviceSelect"></select></label>
+                <label><span>Zasilanie A — źródło</span><input name="primarySourceLabel" placeholder="PDU A"></label>
+                <label><span>Zasilanie A — gniazdo</span><input name="primaryOutletNumber" type="number" min="1" placeholder="1"></label>
+                <label><span>Zasilanie B — źródło</span><input name="backupSourceLabel" placeholder="UPS B"></label>
+                <label><span>Zasilanie B — gniazdo</span><input name="backupOutletNumber" type="number" min="1" placeholder="1"></label>
+                <div class="form-actions field-span-2"><button type="submit" class="btn btn-primary">Zapisz zasilanie</button></div>
+              </form>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-snmp">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">🔌 SNMP / interfejsy</div>
+                  <div class="muted">Jedna tabela interfejsów dla wybranego urządzenia + metryki nad tabelą.</div>
+                </div>
+                <div class="inline-actions"><span id="snmpModeBadge" class="badge">tryb: live</span><button id="pollSnmpBtn" class="btn btn-secondary btn-small">Pobierz SNMP</button><button id="refreshSnmpBtn" class="btn btn-secondary btn-small">Odśwież</button></div>
+              </div>
+              <div class="rack-toolbar snmp-toolbar">
+                <label><span>Serwerownia</span><select id="snmpRoomSelect"></select></label>
+                <label><span>Szafa</span><select id="snmpRackSelect"></select></label>
+                <label><span>Urządzenie</span><select id="snmpDeviceSelect"></select></label>
+              </div>
+              <div id="snmpSummary" class="metric-grid top-gap"></div>
+              <div id="snmpDeviceMeta" class="muted top-gap"></div>
+              <div id="snmpTableWrap" class="top-gap"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-topology">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Topologia</div>
+                  <div class="muted">Jedna tabela sąsiadów i uplinków dla bieżącej szafy. Widok tylko informacyjny — bez ruszania stabilnego układu rack / urządzenia / inspektor.</div>
+                </div>
+                <div id="topologySummaryBadge" class="badge">0 relacji</div>
+              </div>
+              <div id="topologyTableWrap" class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Port</th><th>Sąsiad / cel</th><th>Port sąsiada</th><th>Typ relacji</th><th>Medium</th><th>Trasa</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="topologyTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-uplinks">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Uplinki</div>
+                  <div class="muted">Jedna tabela połączeń wychodzących poza bieżącą szafę lub oznaczonych jako uplink.</div>
+                </div>
+                <div id="uplinksSummaryBadge" class="badge">0 uplinków</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Port</th><th>Cel</th><th>Port celu</th><th>Medium</th><th>Trasa</th><th>Długość</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="uplinksTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-capacity">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Pojemność</div>
+                  <div class="muted">Jedna tabela podsumowująca wykorzystanie U, portów, zasilania i relacji dla bieżącej szafy.</div>
+                </div>
+                <div id="capacitySummaryBadge" class="badge">0 kategorii</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Obszar</th><th>Pojemność</th><th>Wykorzystane</th><th>Wolne / OK</th><th>Status</th><th>Szczegóły</th></tr>
+                  </thead>
+                  <tbody id="capacityTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-routing">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">L3 / VLAN</div>
+                  <div class="muted" id="routingMeta">Jedna tabela adresacji, VLAN i gateway dla bieżącej szafy.</div>
+                </div>
+                <div class="toolbar-inline">
+                  <button type="button" class="btn btn-secondary btn-small" id="refreshRoutingBtn">Odśwież L3</button>
+                </div>
+              </div>
+              <div id="routingTableWrap"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-heatmap">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Porty – heatmapa</div>
+                  <div class="muted">Jedna tabela zajętości portów dla urządzeń z portami. Wysoka zajętość i błędy są od razu widoczne.</div>
+                </div>
+                <div id="heatmapSummaryBadge" class="badge">0 urządzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Porty</th><th>UP</th><th>DOWN</th><th>Zajętość</th><th>Błędy</th><th>Najbardziej obciążony port</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="heatmapTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-traffic">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Traffic</div>
+                  <div class="muted">Jedna tabela ruchu dla urządzeń w bieżącej szafie. Dane z cache SNMP lub z modelu pochodnego.</div>
+                </div>
+                <div id="trafficSummaryBadge" class="badge">0 urządzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Status</th><th>Interfejsy</th><th>UP</th><th>RX razem</th><th>TX razem</th><th>Błędy</th><th>Aktualizacja</th></tr>
+                  </thead>
+                  <tbody id="trafficTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-top-talkers">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Top Talkers</div>
+                  <div class="muted">Jedna tabela najbardziej obciążonych interfejsów dla bieżącej szafy.</div>
+                </div>
+                <div id="topTalkersSummaryBadge" class="badge">0 wpisów</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Interfejs</th><th>RX</th><th>TX</th><th>Suma</th><th>Błędy</th><th>Ostatnia aktualizacja</th></tr>
+                  </thead>
+                  <tbody id="topTalkersTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-system-events">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">System Events</div>
+                  <div class="muted">Jedna tabela zdarzeń systemowych dla urządzeń z bieżącej szafy.</div>
+                </div>
+                <div id="systemEventsSummaryBadge" class="badge">0 zdarzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Czas</th><th>Typ</th><th>Urządzenie</th><th>Zdarzenie</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="systemEventsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-hardware">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Hardware</div>
+                  <div class="muted">Jedna tabela inwentarza hardware dla bieżącej szafy.</div>
+                </div>
+                <div id="hardwareSummaryBadge" class="badge">0 urządzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Urządzenie</th><th>Producent</th><th>Model</th><th>Serial</th><th>Firmware</th><th>Status</th></tr>
+                  </thead>
+                  <tbody id="hardwareTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-patch-logic">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Patch panel</div>
+                  <div class="muted" id="patchLogicMeta">Jedna tabela relacji logicznych patch paneli i organizerów w bieżącej szafie.</div>
+                </div>
+                <div class="toolbar-inline">
+                  <button type="button" class="btn btn-secondary btn-small" id="refreshPatchLogicBtn">Odśwież patch panel</button>
+                </div>
+              </div>
+              <div id="patchLogicTableWrap"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-port-history">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Historia portów</div>
+                  <div class="muted">Jedna tabela najważniejszych zdarzeń dla portów i interfejsów bieżącej szafy.</div>
+                </div>
+                <div id="portHistorySummaryBadge" class="badge">0 zdarzeń</div>
+              </div>
+              <div class="table-scroll rack-table-shell">
+                <table class="data-table compact-table rack-management-table">
+                  <thead>
+                    <tr><th>Czas</th><th>Urządzenie</th><th>Port</th><th>Akcja</th><th>Użytkownik</th><th>Szczegóły</th></tr>
+                  </thead>
+                  <tbody id="portHistoryTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-snmp-history">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Polling SNMP</div>
+                  <div class="muted" id="snmpHistoryMeta">Jedna tabela historii cykli pollingowych SNMP dla bieżącej szafy.</div>
+                </div>
+                <div class="toolbar-inline">
+                  <button type="button" class="btn btn-secondary btn-small" id="refreshSnmpHistoryBtn">Odśwież historię</button>
+                </div>
+              </div>
+              <div id="snmpHistoryTableWrap"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab-group="rackpage" id="rack-page-uplinks-global">
+            <div class="panel-card panel-card-embedded rack-full-panel rack-tab-stack">
+              <div class="panel-head-row">
+                <div>
+                  <div class="panel-title">Uplinki globalne</div>
+                  <div class="muted" id="uplinksGlobalMeta">Jedna tabela relacji między szafami i serwerowniami.</div>
+                </div>
+                <div class="toolbar-inline">
+                  <button type="button" class="btn btn-secondary btn-small" id="refreshUplinksGlobalBtn">Odśwież uplinki</button>
+                </div>
+              </div>
+              <div id="uplinksGlobalTableWrap"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="mapView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">🗺️ Mapa połączeń 2D</div>
+              <div class="muted">Widok relacji: serwerownia → szafa → urządzenie oraz linki port-port.</div>
+            </div>
+            <div class="inline-actions">
+              <select id="mapBuildingFilter" class="map-filter-select"><option value="">Wszystkie budynki</option></select>
+              <select id="mapRoomFilter" class="map-filter-select"><option value="">Wszystkie serwerownie</option></select>
+              <input id="mapVlanFilter" class="map-filter-input" placeholder="VLAN np. 10">
+              <button id="applyMapFiltersBtn" class="btn btn-secondary btn-small">Filtruj</button>
+              <button id="refreshMapBtn" class="btn btn-secondary btn-small">Odśwież mapę</button>
+            </div>
+          </div>
+          <div id="mapLegend" class="map-legend"></div>
+          <div id="networkMapCanvas" class="network-map-canvas"></div>
+          <div id="mapPathList" class="map-path-list"></div>
+          <div class="subsection-title">🪢 Trasy kablowe</div>
+          <div class="two-col equal-cols top-gap">
+            <div class="panel-card panel-card-embedded">
+              <div class="panel-title">Dodaj trasę kablową</div>
+              <form id="cableRouteForm" class="stack gap-sm">
+                <label><span>Nazwa trasy</span><input name="name" placeholder="Trasa A-23-R1" required></label>
+                <label><span>Budynek startowy</span><input name="fromBuilding" placeholder="Budynek A"></label>
+                <label><span>Budynek docelowy</span><input name="toBuilding" placeholder="Budynek B"></label>
+                <label><span>Medium</span>
+                  <select name="medium">
+                    <option value="miedź">miedź</option>
+                    <option value="światłowód">światłowód</option>
+                    <option value="uplink">uplink</option>
+                  </select>
+                </label>
+                <label><span>Notatki</span><textarea name="notes" rows="3" placeholder="Opis przejścia kabla"></textarea></label>
+                <button type="submit" class="btn btn-primary">Zapisz trasę</button>
+              </form>
+            </div>
+            <div class="panel-card panel-card-embedded">
+              <div class="panel-title">Lista tras</div>
+              <div id="cableRoutesList" class="room-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="reportView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">🧾 Raport techniczny</div>
+              <div class="muted">Widok tabelaryczny: serwerownia → szafa → urządzenie → port → IP/VLAN → zasilanie</div>
+            </div>
+            <div class="inline-actions">
+              <button id="refreshReportBtn" class="btn btn-secondary">Odśwież</button>
+              <a href="/api/report/technical.csv" class="btn btn-primary">Eksport CSV</a>
+            </div>
+          </div>
+          <div id="reportTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="datacentersView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">🌍 Multi-datacenter</div>
+              <div class="muted">Jedna tabela podsumowująca budynki, serwerownie, szafy, zajętość U i uplinki. Bez naruszania układu pracy w szafie.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshDatacentersBtn">Odśwież widok</button></div>
+          </div>
+          <div id="datacentersTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="flowView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">📶 Flow telemetry</div>
+              <div class="muted">Jedna tabela top talkers i obciążeń collector-ready. Dane pochodzą z SNMP cache i modelu ruchu, gotowe pod aktywny collector NetFlow / sFlow.</div>
+            </div>
+            <div class="toolbar-inline">
+              <button type="button" class="btn btn-secondary btn-small" id="exportFlowJsonBtn">Eksport JSON</button>
+              <button type="button" class="btn btn-secondary btn-small" id="testFlowCollectorBtn">Test collectora</button>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshFlowBtn">Odśwież telemetry</button>
+            </div>
+          </div>
+          <form id="flowCollectorForm" class="inline-form-grid top-gap">
+            <label><span>Tryb collectora</span><select id="flowCollectorMode"><option value="netflow">NetFlow</option><option value="sflow">sFlow</option><option value="hybrid">Hybrid</option></select></label>
+            <label><span>Bind host</span><input id="flowCollectorHost" placeholder="0.0.0.0"></label>
+            <label><span>Port UDP</span><input id="flowCollectorPort" type="number" min="1" step="1" value="2055"></label>
+            <label><span>Auto-start</span><select id="flowCollectorEnabled"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <label><span>Próbkowanie</span><input id="flowCollectorSampling" type="number" min="1" step="1" value="1000"></label>
+            <div class="toolbar-inline end"><button type="submit" class="btn btn-primary btn-small">Zapisz collector</button></div>
+          </form>
+          <div id="flowCollectorMeta" class="muted top-gap"></div>
+          <div id="flowSummary" class="metric-grid top-gap"></div>
+          <div id="flowTableWrap"></div>
+        </div>
+      </section>
+
+
+      <section id="collectorsView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">Kolektory i schedulery</div>
+              <div class="muted">Jedna tabela stanu schedulerów i collectorów bez naruszania stabilnego układu pracy w szafie.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshCollectorsBtn">Odśwież kolektory</button></div>
+          </div>
+          <div id="collectorsTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="conflictsView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">⚠️ Konflikty IP / VLAN</div>
+              <div class="muted">Jedna tabela duplikatów adresacji i niespójności VLAN / podsieci w całym modelu.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshConflictsBtn">Przeskanuj konflikty</button></div>
+          </div>
+          <div id="conflictsTableWrap"></div>
+        </div>
+      </section>
+
+      
+      <section id="postgresView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">PostgreSQL backend / bridge</div>
+              <div class="muted">Jedna tabela statusu bridge PostgreSQL + aktywna synchronizacja push/pull bez naruszania stabilnego UI.</div>
+            </div>
+            <div class="toolbar-inline">
+              <button type="button" class="btn btn-secondary btn-small" id="refreshPostgresBtn">Odśwież</button>
+              <button type="button" class="btn btn-secondary btn-small" id="testPostgresBtn">Test bridge</button>
+              <button type="button" class="btn btn-secondary btn-small" id="exportPostgresBtn">Snapshot JSON</button>
+              <button type="button" class="btn btn-secondary btn-small" id="pushPostgresBtn">Push sync</button>
+              <button type="button" class="btn btn-secondary btn-small" id="pullPostgresBtn">Pull sync</button>
+            </div>
+          </div>
+          <form id="postgresForm" class="inline-form-grid top-gap">
+            <label><span>Host</span><input id="postgresHost" placeholder="127.0.0.1"></label>
+            <label><span>Port</span><input id="postgresPort" type="number" min="1" step="1" value="5432"></label>
+            <label><span>Baza</span><input id="postgresDatabase" placeholder="dcim"></label>
+            <label><span>Użytkownik</span><input id="postgresUser" placeholder="dcim"></label>
+            <label><span>Hasło</span><input id="postgresPassword" type="password" placeholder="••••••"></label>
+            <label><span>SSL</span><select id="postgresSsl"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <label><span>Bridge aktywny</span><select id="postgresEnabled"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <div class="toolbar-inline end"><button type="submit" class="btn btn-primary btn-small">Zapisz konfigurację</button></div>
+          </form>
+          <div id="postgresStatusMeta" class="muted top-gap"></div>
+          <div id="postgresTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="rolesView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">👥 Role i uprawnienia</div>
+              <div class="muted">Jedna tabela użytkowników i ich zakresów dostępu. Bez naruszania stabilnego układu rack / urządzenia / inspektor.</div>
+            </div>
+            <div class="toolbar-inline">
+              <button type="button" class="btn btn-secondary btn-small" id="exportRolesJsonBtn">Eksport JSON</button>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshRolesBtn">Odśwież role</button>
+            </div>
+          </div>
+          <form id="rolesForm" class="inline-form-grid top-gap">
+            <label><span>Użytkownik</span><select id="rolesUserId"></select></label>
+            <label><span>Rola</span><select id="rolesUserRole"><option value="viewer">viewer</option><option value="operator">operator</option><option value="admin">admin</option></select></label>
+            <label><span>Zakres</span><select id="rolesUserScope"><option value="global">global</option><option value="building">building</option><option value="room">room</option><option value="rack">rack</option></select></label>
+            <label><span>Dostęp do zmian</span><select id="rolesCanWrite"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <label><span>Dostęp do ustawień</span><select id="rolesCanAdmin"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <label><span>Dostęp do telemetry</span><select id="rolesCanTelemetry"><option value="0">Nie</option><option value="1">Tak</option></select></label>
+            <div class="toolbar-inline end"><button type="submit" class="btn btn-primary btn-small">Zapisz rolę</button></div>
+          </form>
+          
+          <div class="panel-card top-gap">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">✅ Użytkownicy lokalni</div>
+                <div class="muted">Tworzenie prawdziwych kont lokalnych z loginem, hasłem, blokadą i rolą.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshUsersBtn">Odśwież użytkowników</button></div>
+            </div>
+            <form id="userCreateForm" class="inline-form-grid top-gap">
+              <label><span>Login</span><input id="newUserUsername" placeholder="operator"></label>
+              <label><span>Imię i nazwisko</span><input id="newUserFullName" placeholder="Operator NOC"></label>
+              <label><span>Hasło</span><input id="newUserPassword" type="password" placeholder="minimum 6 znaków"></label>
+              <label><span>Rola</span><select id="newUserRole"><option value="viewer">viewer</option><option value="operator">operator</option><option value="admin">admin</option></select></label>
+              <div class="toolbar-inline end"><button type="submit" class="btn btn-primary btn-small">Dodaj użytkownika</button></div>
+            </form>
+            <div id="usersMeta" class="muted top-gap"></div>
+            <div id="usersTableWrap" class="top-gap"></div>
+          </div>
+
+          <div id="rolesMeta" class="muted top-gap"></div>
+          <div id="rolesGranularWrap" class="top-gap"></div>
+          <div id="rolesTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="map3dView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">Mapa 3D serwerowni</div>
+              <div class="muted">Jedno główne okno floor-plan 3D: budynki, serwerownie i szafy z pozycjonowaniem rzędów, bez naruszania stabilnego rack layoutu.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportMap3dJsonBtn">Eksport JSON</button><button type="button" class="btn btn-secondary btn-small" id="toggleMap3dModeBtn">Tryb korytarz / plan</button><button type="button" class="btn btn-secondary btn-small" id="refreshMap3dBtn">Odśwież 3D</button></div>
+          </div>
+          <div id="map3dMeta" class="muted"></div>
+          <div id="map3dStats" class="metric-grid top-gap"></div>
+          <div id="map3dWrap" class="map3d-wrap"></div>
+        </div>
+      </section>
+
+      <section id="dependenciesView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">🧩 Zależności usług</div>
+              <div class="muted">Jedna tabela zależności urządzeń i uplinków, gotowa pod analizę wpływu awarii.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportDependenciesCsvBtn">Eksport CSV</button><button type="button" class="btn btn-secondary btn-small" id="refreshDependenciesBtn">Odśwież zależności</button></div>
+          </div>
+          <div id="dependenciesMeta" class="muted"></div>
+          <div id="dependenciesStats" class="metric-grid top-gap"></div>
+          <div id="dependenciesTableWrap"></div>
+        </div>
+      </section>
+
+
+      <section id="applicationsView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">Aplikacje / grupy usług</div>
+              <div class="muted">Jedna tabela grupująca zależności infrastruktury po aplikacjach i funkcjach systemowych.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportApplicationsCsvBtn">Eksport CSV</button><button type="button" class="btn btn-secondary btn-small" id="refreshApplicationsBtn">Odśwież aplikacje</button></div>
+          </div>
+          <div id="applicationsMeta" class="muted"></div>
+          <div id="applicationsStats" class="metric-grid top-gap"></div>
+          <div id="applicationsTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="autodocView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">📝 Auto docs</div>
+              <div class="muted">Jedna tabela automatycznej dokumentacji zasobów. Eksportuje skrót środowiska do JSON i Markdown.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportAutodocJsonBtn">Eksport JSON</button><button type="button" class="btn btn-secondary btn-small" id="exportAutodocMdBtn">Eksport MD</button><button type="button" class="btn btn-secondary btn-small" id="refreshAutodocBtn">Odśwież auto docs</button></div>
+          </div>
+          <div id="autodocMeta" class="muted"></div>
+          <div id="autodocStats" class="metric-grid top-gap"></div>
+          <div id="autodocTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="collectorPerfView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">📊 Dashboard collectorów</div>
+              <div class="muted">Jedna tabela wydajności collectorów: ping, SNMP, flow telemetry i PostgreSQL bridge.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportCollectorPerfCsvBtn">Eksport CSV</button><button type="button" class="btn btn-secondary btn-small" id="refreshCollectorPerfBtn">Odśwież dashboard</button></div>
+          </div>
+          <div id="collectorPerfMeta" class="muted"></div>
+          <div id="collectorPerfStats" class="metric-grid top-gap"></div>
+          <div id="collectorPerfTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="cableView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div>
+              <div class="panel-title">Wizualizacja tras kablowych</div>
+              <div class="muted">Jedna tabela tras między szafami, z segmentami, medium i stanem. Kliknięcia przenoszą do właściwej szafy.</div>
+            </div>
+            <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="exportCableCsvBtn">Eksport CSV</button><button type="button" class="btn btn-secondary btn-small" id="refreshCableVizBtn">Odśwież trasy</button></div>
+          </div>
+          <div id="cableVizMeta" class="muted"></div>
+          <div id="cableVizStats" class="metric-grid top-gap"></div>
+          <div id="cableVizTableWrap"></div>
+        </div>
+      </section>
+
+      <section id="snmpView" class="view"><div class="panel-card"><div class="panel-title">🔌 SNMP / interfejsy</div><div class="muted">Ten widok został przeniesiony do zakładki w sekcji „Szafa rack”, żeby zachować czytelność i zasadę: jedna tabela na stronę.</div></div></section>
+
+
+      <section id="opsView" class="view">
+        <div class="ops-grid">
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">✅ Metryki hosta</div>
+                <div class="muted">CPU, RAM, dysk, uptime i wersja Node.js serwera aplikacji.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshOpsMetricsBtn">Odśwież metryki</button>
+            </div>
+            <div id="opsMetricsGrid" class="metric-grid top-gap"></div>
+            <div id="opsMetricsMeta" class="muted top-gap"></div>
+            <div class="top-gap ops-live-row">
+              <span id="opsMetricsStreamBadge" class="status-chip status-chip-neutral">⚪ stream off</span>
+              <span id="opsMetricsStreamMeta" class="muted">Live metryki przez WebSocket nieaktywne.</span>
+            </div>
+            <div id="opsMetricsCharts" class="metrics-charts top-gap"></div><pre id="opsMetricsLiveBox" class="runtime-log-box top-gap metrics-live-box">Czekam na pierwszy pakiet metryk live…</pre>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">💾 Backupy</div>
+                <div class="muted">Ręczne uruchomienie backupu, harmonogram i przywracanie z listy.</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-small" id="runBackupNowBtn">Uruchom backup teraz</button>
+            </div>
+            <form id="backupConfigForm" class="ops-form top-gap">
+              <label><span>Backup automatyczny</span><input id="backupEnabledInput" type="checkbox"></label>
+              <label><span>Interwał (min)</span><input id="backupIntervalInput" type="number" min="15" step="15" value="360"></label>
+              <label><span>Retencja (ile plików)</span><input id="backupRetentionInput" type="number" min="1" step="1" value="10"></label>
+              <div class="form-actions span-3"><button type="submit" class="btn btn-secondary">Zapisz konfigurację backupów</button></div>
+            </form>
+            <div id="backupMeta" class="muted top-gap"></div>
+            <div id="backupTableWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">⚙️ Usługi systemowe / procesy</div>
+                <div class="muted">Konfiguruj usługi przez JSON. Każda pozycja wspiera status, start, stop i restart.</div>
+              </div>
+              <div class="toolbar-inline">
+                <button type="button" class="btn btn-secondary btn-small" id="refreshServicesBtn">Odśwież usługi</button>
+                <button type="button" class="btn btn-secondary btn-small" id="saveServicesBtn">Zapisz konfigurację</button>
+              </div>
+            </div>
+            <label class="top-gap"><span>Konfiguracja usług (JSON)</span><textarea id="servicesConfigInput" rows="8" class="mono-input" placeholder='[{"name":"nginx","serviceName":"nginx","platform":"linux","mode":"system"}]'></textarea></label>
+            <div id="servicesMeta" class="muted top-gap"></div>
+            <div id="servicesTableWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🐳 Docker</div>
+                <div class="muted">Podgląd kontenerów i podstawowe akcje start / stop / restart z GUI.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshDockerBtn">Odśwież Docker</button>
+            </div>
+            <div id="dockerMeta" class="muted top-gap"></div>
+            <div id="dockerTableWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">⚠️ Webhook alertów</div>
+                <div class="muted">Discord / Slack / dowolny endpoint HTTP przyjmujący JSON.</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-small" id="testAlertsBtn">Wyślij test</button>
+            </div>
+            <form id="alertsForm" class="ops-form top-gap">
+              <label><span>Włącz alerty</span><input id="alertsEnabledInput" type="checkbox"></label>
+              <label class="span-2"><span>Webhook URL</span><input id="alertsWebhookInput" type="text" placeholder="https://example.com/webhook"></label>
+              <div class="form-actions span-3"><button type="submit" class="btn btn-secondary">Zapisz webhook</button></div>
+            </form>
+            <div id="alertsMeta" class="muted top-gap"></div>
+          </div>
+
+          
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🖥️ SSH terminal w przeglądarce</div>
+                <div class="muted">v74: live terminal z lepszym UI, auto-resize, kopiowaniem i wklejaniem. Backend nadal używa WebSocket + PTY.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshSshBtn">Odśwież SSH</button><button type="button" class="btn btn-secondary btn-small" id="saveSshProfilesBtn">Zapisz profile</button></div>
+            </div>
+            <label class="top-gap"><span>Profile SSH (JSON)</span><textarea id="sshProfilesInput" rows="8" class="mono-input" placeholder='[{"name":"Prod","host":"10.0.0.10","port":22,"username":"root","keyPath":"/home/user/.ssh/id_ed25519","strictHostKeyChecking":false}]'></textarea></label>
+            <div class="ops-form top-gap">
+              <label><span>Profil</span><select id="sshProfileSelect"></select></label>
+              <label><span>Polecenie jednorazowe</span><input id="sshCommandInput" type="text" placeholder="hostname && uptime"></label>
+              <label><span>Tryb live</span><select id="terminalModeSelect"><option value="local">Lokalna powłoka</option><option value="ssh">SSH z profilu</option></select></label>
+              <div class="form-actions span-3">
+                <button type="button" class="btn btn-primary" id="runSshCommandBtn">Uruchom polecenie SSH</button>
+                <button type="button" class="btn btn-secondary" id="startLiveTerminalBtn">Start live terminala</button>
+                <button type="button" class="btn btn-secondary" id="stopLiveTerminalBtn">Zatrzymaj</button>
+              </div>
+            </div>
+            <div id="sshMeta" class="muted top-gap"></div>
+            <pre id="sshOutputBox" class="runtime-log-box top-gap">Brak wyniku.</pre>
+            <div class="terminal-shell top-gap">
+              <div class="terminal-toolbar">
+                <div class="terminal-status-row">
+                  <span id="terminalStatusBadge" class="status-chip status-chip-neutral">⚪ offline</span>
+                  <span id="terminalSessionMeta" class="muted">Tryb: lokalny · 120x30</span>
+                </div>
+                <div class="toolbar-inline">
+                  <button type="button" class="btn btn-secondary btn-small" id="clearTerminalBtn">Wyczyść</button>
+                  <button type="button" class="btn btn-secondary btn-small" id="copyTerminalBtn">Kopiuj</button>
+                  <button type="button" class="btn btn-secondary btn-small" id="pasteTerminalBtn">Wklej</button>
+                  <button type="button" class="btn btn-secondary btn-small" id="sendTerminalLineBtn">Wyślij linię</button>
+                </div>
+              </div>
+              <div class="muted top-gap">⌨️ Live terminal: kliknij w okno, wpisuj komendy, użyj Ctrl+C, Enter, Backspace albo pola poniżej.</div>
+              <div class="muted top-gap" id="terminalPermissionsMeta">Role terminala: viewer = brak terminala, operator = lokalny + SSH, admin = pełny dostęp i zarządzanie sesjami.</div>
+              <div id="liveTerminalBox" class="runtime-log-box top-gap terminal-box" tabindex="0">Live terminal nie jest uruchomiony.</div>
+              <div class="terminal-input-row top-gap">
+                <input id="terminalLineInput" type="text" class="mono-input" placeholder="Wpisz komendę i wyślij Enterem lub przyciskiem…">
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🧵 Sesje terminalowe</div>
+                <div class="muted">Osobny panel sesji PTY / SSH. Operator widzi swoje sesje, admin widzi wszystkie i może je kończyć.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshTerminalSessionsBtn">Odśwież sesje</button>
+            </div>
+            <div id="terminalSessionsMeta" class="muted top-gap"></div>
+            <div id="terminalSessionsTableWrap" class="top-gap"></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🛡️ Polityki terminala i profili SSH</div>
+                <div class="muted">GUI do ról terminala, hostów i poleceń dozwolonych / blokowanych per rola.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshTerminalPoliciesBtn">Odśwież polityki</button><button type="button" class="btn btn-secondary btn-small" id="saveTerminalPoliciesBtn">Zapisz polityki</button></div>
+            </div>
+            <div id="terminalPoliciesMeta" class="muted top-gap"></div>
+            <div id="terminalPoliciesGrid" class="policy-grid top-gap"></div>
+            <div class="panel-head-row top-gap"><div class="muted">Polityki per host w GUI, bez ręcznego JSON.</div><div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="addTerminalHostPolicyBtn">Dodaj politykę hosta</button></div></div>
+            <div id="terminalPerHostPoliciesWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">📜 Audyt sesji terminalowych</div>
+                <div class="muted">Start / stop / kill sesji oraz blokowane i wykonane polecenia z polityk terminala.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshTerminalAuditBtn">Odśwież audyt sesji</button>
+            </div>
+            <div id="terminalAuditMeta" class="muted top-gap"></div>
+            <div id="terminalAuditTableWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🧪 Audyt endpointów</div>
+                <div class="muted">Przegląd projektu endpoint po endpointcie: ścieżki, metody i middleware auth/admin.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="refreshRoutesAuditBtn">Odśwież endpointy</button>
+            </div>
+            <div id="routesAuditMeta" class="muted top-gap"></div>
+            <div id="routesAuditTableWrap" class="top-gap"></div>
+          </div>
+
+          
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🧾 Transcripty i eksport audytu</div>
+                <div class="muted">Pełne nagrania sesji terminalowych, podgląd i eksport audytu do JSON / CSV.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshTranscriptsBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="exportTerminalAuditJsonBtn">Eksport JSON</button><button type="button" class="btn btn-secondary btn-small" id="exportTerminalAuditCsvBtn">Eksport CSV</button></div>
+            </div>
+            <div id="transcriptsMeta" class="muted top-gap"></div>
+            <div id="transcriptsTableWrap" class="top-gap"></div>
+            <label class="top-gap"><span>Podgląd transcriptu</span><textarea id="transcriptPreviewBox" rows="10" class="mono-input" readonly></textarea></label>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">📊 Centrum live metryk</div>
+                <div class="muted">Retencja próbek, progi CPU/RAM/dysk, time-series i alerty na żywo.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshMetricsCenterBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="saveMetricsCenterBtn">Zapisz</button></div>
+            </div>
+            <form id="metricsCenterForm" class="ops-form top-gap">
+              <label><span>Retencja próbek</span><input id="metricsRetentionInput" type="number" min="30" step="10" value="480"></label>
+              <label><span>Interwał próbkowania (sek)</span><input id="metricsSampleIntervalInput" type="number" min="3" step="1" value="15"></label>
+              <label><span>CPU alert %</span><input id="metricsCpuThresholdInput" type="number" min="1" max="999" step="1" value="85"></label>
+              <label><span>RAM alert %</span><input id="metricsMemoryThresholdInput" type="number" min="1" max="100" step="1" value="85"></label>
+              <label><span>Dysk alert %</span><input id="metricsDiskThresholdInput" type="number" min="1" max="100" step="1" value="90"></label>
+            </form>
+            <div id="metricsCenterMeta" class="muted top-gap"></div>
+            <div id="metricsCenterCharts" class="metrics-charts top-gap"></div>
+            <div id="metricsAlertsWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🌐 Multi-host / agenci</div>
+                <div class="muted">Centralny panel wielu hostów. Dodaj agentów VSM, odpytywanie po tokenie i cache statusów.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshAgentsBtn">Odśwież agentów</button><button type="button" class="btn btn-secondary btn-small" id="pollAgentsBtn">Poll teraz</button><button type="button" class="btn btn-secondary btn-small" id="saveAgentsBtn">Zapisz agentów</button></div>
+            </div>
+            <form id="agentsConfigForm" class="ops-form top-gap">
+              <label><span>Włącz panel agentów</span><input id="agentsEnabledInput" type="checkbox"></label>
+              <label><span>Poll interval (sek)</span><input id="agentsPollIntervalInput" type="number" min="10" step="5" value="30"></label>
+              <label class="span-2"><span>Shared token agenta</span><input id="agentsSharedTokenInput" type="text" placeholder="vsm-agent-token"></label>
+            </form>
+            <div class="muted top-gap">Preferowany tryb od v82: GUI poniżej. JSON zostaje jako awaryjny import/eksport.</div>
+            <label class="top-gap"><span>Agenci (JSON awaryjny)</span><textarea id="agentsConfigInput" rows="5" class="mono-input" placeholder='[{"name":"Warszawa-1","baseUrl":"http://10.0.0.20:3080","token":"vsm-agent-token"}]'></textarea></label>
+            <label class="top-gap"><span>Polityki agentów (JSON awaryjny)</span><textarea id="agentsPoliciesInput" rows="4" class="mono-input" placeholder='{"1":{"allowSsh":true,"notes":"host krytyczny"}}'></textarea></label>
+            <div id="agentsMeta" class="muted top-gap"></div>
+            <div id="agentsGuiWrap" class="top-gap"></div>
+            <div id="agentsThresholdsWrap" class="top-gap"></div>
+            <div id="agentsAlertsWrap" class="top-gap"></div>
+            <div id="agentsDashboardWrap" class="top-gap"></div>
+            <div id="agentsTableWrap" class="top-gap"></div>
+          </div>
+
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">⏱️ Harmonogram zadań</div>
+                <div class="muted">Backupy, akcje usług, Docker, komendy lokalne i zdalne SSH według interwału.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshTasksBtn">Odśwież zadania</button><button type="button" class="btn btn-secondary btn-small" id="saveTasksBtn">Zapisz zadania</button></div>
+            </div>
+            <label class="top-gap"><span>Zadania (JSON)</span><textarea id="tasksConfigInput" rows="10" class="mono-input" placeholder='[{"name":"Backup co godzinę","enabled":true,"intervalMin":60,"type":"backup"}]'></textarea></label>
+            <div id="tasksMeta" class="muted top-gap"></div>
+            <div id="tasksTableWrap" class="top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🔐 2FA / TOTP</div>
+                <div class="muted">Zabezpieczenie logowania kodem z aplikacji typu Google Authenticator, Aegis albo 2FAS.</div>
+              </div>
+              <div class="toolbar-inline">
+                <button type="button" class="btn btn-secondary btn-small" id="refresh2faBtn">Odśwież 2FA</button>
+                <button type="button" class="btn btn-secondary btn-small" id="generate2faBtn">Generuj sekret</button>
+              </div>
+            </div>
+            <div id="twoFactorMeta" class="muted top-gap"></div>
+            <label class="top-gap"><span>Secret / klucz ręczny</span><input id="twoFactorSecretInput" type="text" readonly placeholder="Wygeneruj sekret 2FA"></label>
+            <label class="top-gap"><span>otpauth URL</span><textarea id="twoFactorOtpAuthInput" rows="3" class="mono-input" readonly placeholder="Tutaj pojawi się URL do importu w aplikacji TOTP"></textarea></label>
+            <div class="ops-form top-gap">
+              <label><span>Kod z aplikacji</span><input id="twoFactorTokenInput" type="text" inputmode="numeric" placeholder="123456"></label>
+              <label><span>Hasło do wyłączenia</span><input id="twoFactorDisablePasswordInput" type="password" placeholder="Twoje hasło"></label>
+              <div class="form-actions span-3">
+                <button type="button" class="btn btn-primary" id="enable2faBtn">Włącz 2FA</button>
+                <button type="button" class="btn btn-secondary" id="disable2faBtn">Wyłącz 2FA</button>
+              </div>
+            </div>
+            <pre id="twoFactorRecoveryBox" class="runtime-log-box top-gap">Kody recovery pojawią się tutaj po aktywacji 2FA.</pre>
+          </div>
+
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🏢 Multi-Organizations + enterprise RBAC</div>
+                <div class="muted">Organizacje, role enterprise, przypisania użytkowników i izolacja zasobów pod dalsze etapy.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshEnterpriseBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="saveEnterpriseBtn">Zapisz</button></div>
+            </div>
+            <label class="top-gap"><span>Organizacje (JSON)</span><textarea id="organizationsInput" rows="5" class="mono-input" placeholder='[{"id":1,"name":"Default","slug":"default","theme":"dark-blue"}]'></textarea></label>
+            <label class="top-gap"><span>Role enterprise (JSON)</span><textarea id="enterpriseRolesInput" rows="6" class="mono-input" placeholder='[{"id":1,"name":"org_admin","orgId":1,"permissions":["org.manage","tickets.approve"]}]'></textarea></label>
+            <label class="top-gap"><span>Przypisania ról + organizacje użytkowników (JSON)</span><textarea id="enterpriseAssignmentsInput" rows="6" class="mono-input" placeholder='{"assignments":[{"userId":1,"orgId":1,"roleId":1}],"users":[{"id":1,"organizationIds":[1]}]}'></textarea></label>
+            <div id="enterpriseMeta" class="muted top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🎫 Ticket workflow + Identity center</div>
+                <div class="muted">Workflow zatwierdzania dostępu oraz konfiguracja LDAP / OIDC / SAML i mapowania grup.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshIdentityBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="saveIdentityBtn">Zapisz identity</button></div>
+            </div>
+            <div class="ops-form top-gap">
+              <label><span>Typ ticketu</span><input id="ticketTypeInput" type="text" value="ssh"></label>
+              <label><span>Target</span><input id="ticketTargetInput" type="text" placeholder="prod-gateway"></label>
+              <label><span>Org ID</span><input id="ticketOrgIdInput" type="number" min="1" step="1" value="1"></label>
+            </div>
+            <label class="top-gap"><span>Uzasadnienie</span><textarea id="ticketJustificationInput" rows="3" class="mono-input" placeholder="Potrzebuję dostępu do hosta / DB / RDP."></textarea></label>
+            <div class="toolbar-inline top-gap"><button type="button" class="btn btn-primary btn-small" id="createTicketBtn">Utwórz ticket</button></div>
+            <div id="ticketsMeta" class="muted top-gap"></div>
+            <div id="ticketsTableWrap" class="top-gap"></div>
+            <form id="identityGuiForm" class="ops-form top-gap">
+              <label><span>LDAP URL</span><input id="ldapUrlInput" type="text" placeholder="ldap://dc.local"></label>
+              <label><span>Base DN</span><input id="ldapBaseDnInput" type="text" placeholder="dc=local,dc=lan"></label>
+              <label><span>Search attribute</span><input id="ldapSearchAttributeInput" type="text" placeholder="uid / sAMAccountName"></label>
+              <label><span>LDAP filter template</span><input id="ldapSearchFilterTemplateInput" type="text" placeholder="(&(objectClass=user)({searchAttribute}={username}))"></label>
+              <label class="span-2"><span>Dodatkowe template LDAP (po jednej linii: Nazwa::Template)</span><textarea id="ldapFilterTemplatesInput" rows="3" class="mono-input" placeholder="AD users::(&(objectClass=user)({searchAttribute}={username}))"></textarea></label>
+              <label><span>OIDC issuer</span><input id="oidcIssuerInput" type="text" placeholder="https://id.example.com"></label>
+              <label><span>OIDC clientId</span><input id="oidcClientIdInput" type="text" placeholder="vsm-client"></label>
+              <label><span>OIDC redirect URI</span><input id="oidcRedirectUriInput" type="text" placeholder="http://localhost:3080/api/oidc/callback"></label>
+            </form>
+            <label class="top-gap"><span>Identity center (JSON)</span><textarea id="identityConfigInput" rows="8" class="mono-input" placeholder='{"providers":{"ldap":{"enabled":false,"url":"ldap://dc.local","baseDn":"dc=local,dc=lan"},"oidc":{"enabled":false,"issuer":"https://id.example.com"},"saml":{"enabled":false}},"groupMappings":[]}'></textarea></label>
+            <div id="identityMeta" class="muted top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🖥️ Remote access + DB / K8s</div>
+                <div class="muted">Profile RDP/VNC, bazy danych i Kubernetes. v83 daje zarządzanie profilami i test Postgresa.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshRemoteBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="saveRemoteBtn">Zapisz profile</button><button type="button" class="btn btn-secondary btn-small" id="testDbProfileBtn">Test DB</button></div>
+            </div>
+            <form id="remoteGatewayForm" class="ops-form top-gap">
+              <label><span>Guacamole URL</span><input id="gatewayGuacamoleInput" type="text" placeholder="https://guac.example/#/client/{connectionId}"></label>
+              <label><span>noVNC URL</span><input id="gatewayNoVncInput" type="text" placeholder="https://novnc.example/vnc.html?host={host}&port={port}"></label>
+              <label><span>webRDP URL</span><input id="gatewayWebRdpInput" type="text" placeholder="https://rdp.example/connect?host={host}&port={port}"></label>
+              <label><span>Launch mode</span><input id="gatewayLaunchModeInput" type="text" placeholder="iframe / link"></label>
+              <label><span>Nowe okno</span><input id="gatewayOpenInNewWindowInput" type="checkbox"></label>
+            </form>
+            <label class="top-gap"><span>Profile RDP / VNC (JSON)</span><textarea id="remoteProfilesInput" rows="5" class="mono-input" placeholder='[{"id":1,"type":"rdp","name":"RDP Admin","host":"10.0.0.10","port":3389}]'></textarea></label>
+            <label class="top-gap"><span>Profile baz danych (JSON)</span><textarea id="dbProfilesInput" rows="6" class="mono-input" placeholder='[{"id":1,"type":"postgres","name":"CMDB","host":"127.0.0.1","port":5432,"database":"dcim","user":"dcim","password":""}]'></textarea></label>
+            <label class="top-gap"><span>Profile K8s (JSON)</span><textarea id="k8sProfilesInput" rows="4" class="mono-input" placeholder='[{"id":1,"name":"Prod cluster","apiUrl":"https://k8s.example.com","namespace":"default"}]'></textarea></label>
+            <div id="remoteMeta" class="muted top-gap"></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">🔎 Discovery / asset sync / branding</div>
+                <div class="muted">Automatyzacja kont, synchronizacja assetów, grupy zasobów i branding / theme jak w panelach enterprise.</div>
+              </div>
+              <div class="toolbar-inline"><button type="button" class="btn btn-secondary btn-small" id="refreshDiscoveryBtn">Odśwież</button><button type="button" class="btn btn-secondary btn-small" id="saveDiscoveryBtn">Zapisz</button><button type="button" class="btn btn-secondary btn-small" id="runDiscoveryBtn">Uruchom discovery</button><button type="button" class="btn btn-secondary btn-small" id="saveBrandingBtn">Zapisz branding</button></div>
+            </div>
+            <form id="brandingForm" class="ops-form top-gap">
+              <label><span>Brand name</span><input id="brandingNameInput" type="text" placeholder="Virtual Server Manager"></label>
+              <label><span>Global theme</span><input id="brandingThemeInput" type="text" placeholder="dark-blue"></label>
+              <label><span>Accent color</span><input id="brandingAccentInput" type="text" placeholder="#38bdf8"></label>
+              <label><span>Logo text</span><input id="brandingLogoInput" type="text" placeholder="VSM"></label>
+              <label class="span-2"><span>Custom CSS</span><textarea id="brandingCssInput" rows="3" class="mono-input" placeholder=".app-shell{letter-spacing:.01em;}"></textarea></label>
+            </form>
+            <label class="top-gap"><span>Discovery / asset sync (JSON)</span><textarea id="discoveryConfigInput" rows="8" class="mono-input" placeholder='{"enabled":true,"autoCredentialRotation":false,"cloudSync":false,"jobs":[{"name":"inventory","mode":"inventory","target":"all","enabled":true}],"assetGroups":[{"id":1,"name":"Default assets","tags":["core"],"orgId":1}]}'></textarea></label>
+            <div id="discoveryMeta" class="muted top-gap"></div>
+          </div>
+
+          <div class="panel-card ops-log-card">
+            <div class="panel-head-row">
+              <div>
+                <div class="panel-title">📜 Runtime log</div>
+                <div class="muted">Ostatnie wpisy z logu backendu. Przydatne przy debugowaniu backupów, usług i Dockera.</div>
+              </div>
+              <div class="toolbar-inline">
+                <label><span class="muted small">Linie</span><input id="runtimeLinesInput" type="number" min="10" max="2000" value="200" class="small-number-input"></label>
+                <button type="button" class="btn btn-secondary btn-small" id="refreshRuntimeLogBtn">Odśwież log</button>
+              </div>
+            </div>
+            <pre id="runtimeLogBox" class="runtime-log-box top-gap">Ładowanie logu…</pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="auditView" class="view">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div class="panel-title">📜 Dziennik zmian</div>
+            <button id="refreshAuditBtn" class="btn btn-secondary">Odśwież</button>
+          </div>
+          <div id="auditList" class="audit-list"></div>
+        </div>
+      </section>
+
+      
+      <footer class="app-footer">By Heterodyna Team Software 2026 · v101</footer>
+    </main>
+  </div>
+
+  <div id="deviceModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="deviceModalTitle">Dodaj urządzenie do szafy</h3>
+        <button id="closeDeviceModalBtn" class="icon-btn">✕</button>
+      </div>
+      <form id="deviceForm" class="stack gap-sm">
+        <label><span>Strona szafy</span>
+          <select name="side">
+            <option value="front">Przód</option>
+            <option value="rear">Tył</option>
+          </select>
+        </label>
+        <label><span>Typ urządzenia</span>
+          <select name="type">
+            <option>Switch 24-port</option>
+            <option>Switch 48-port</option>
+            <option>Patch panel 24-port</option>
+            <option>Organizer kabli</option>
+            <option>Serwer 1U</option>
+            <option>Serwer 2U</option>
+            <option>Router</option>
+            <option>Firewall</option>
+            <option>PDU podstawowe 230V</option>
+            <option>UPS zapasowy</option>
+          </select>
+        </label>
+        <label><span>Nazwa / opis</span><input name="label" placeholder="Switch 2" required></label>
+        <label><span>Marka</span><select name="vendor" id="deviceVendorSelect"></select></label>
+        <label><span>Model</span><select name="model" id="deviceModelSelect"></select></label>
+        <label><span>Pozycja startowa U</span><input name="startU" type="number" min="1" max="42" value="1" required></label>
+        <label><span>Rozmiar w U</span><input name="sizeU" type="number" min="1" max="10" value="1" required></label>
+        <div id="deviceFaceplatePreview" class="device-faceplate-preview-box"></div>
+        <button id="deviceSubmitBtn" type="submit" class="btn btn-primary">Dodaj urządzenie</button>
+        <div id="deviceFormError" class="error-box hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="deviceInspectorModal" class="modal hidden">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-head">
+        <div>
+          <h3 id="deviceInspectorModalTitle">Pełny widok urządzenia</h3>
+          <div class="muted small">Kliknij port na froncie switcha, aby od razu przejść do konfiguracji.</div>
+        </div>
+        <button id="closeDeviceInspectorModalBtn" class="icon-btn" type="button">×</button>
+      </div>
+      <div id="deviceInspectorModalContent" class="device-inspector-modal-content"></div>
+    </div>
+  </div>
+
+  <script src="/js/switchFaceplates.js"></script>
+  <script src="/vendor/xterm-compat.js"></script>
+  <script src="/js/app.js?v=94"></script>
+</body>
+</html>

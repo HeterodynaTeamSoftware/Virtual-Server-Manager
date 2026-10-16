@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Server Manager</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="login-body">
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="brand-mark">◫</div>
+      <h1>Virtual Server Manager</h1>
+      <p class="muted">Logowanie do panelu zarządzania serwerownią i szafami.</p>
+      <form id="loginForm" class="stack gap-md">
+        <label>
+          <span>Login</span>
+          <input type="text" name="username" placeholder="admin" required>
+        </label>
+        <label>
+          <span>Hasło</span>
+          <input type="password" name="password" placeholder="••••••••" required>
+        </label>
+        <label>
+          <span>Kod 2FA (jeśli włączony)</span>
+          <input type="text" name="otp" placeholder="123456 lub recovery code">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Zaloguj</button>
+        <button type="button" id="oidcLoginBtn" class="btn btn-secondary btn-block">Zaloguj przez OIDC / SSO</button>
+      </form>
+      <div id="loginError" class="error-box hidden"></div>
+      <div class="hint-box">
+        <strong>Dane startowe:</strong> admin / admin123
+      </div>
+    </div>
+    <div class="login-preview">
+      <div class="preview-card">
+        <div class="preview-grid">
+          <div class="mini-card mini-card-image login-shot-dashboard">
+            <span class="mini-card-caption">Mapa połączeń 2D</span>
+          </div>
+          <div class="mini-card mini-card-image login-shot-rack">
+            <span class="mini-card-caption">Panel szafy rack</span>
+          </div>
+          <div class="mini-card mini-card-image login-shot-snmp">
+            <span class="mini-card-caption">SNMP / interfejsy</span>
+          </div>
+          <div class="mini-card mini-card-image login-shot-dc wide">
+            <span class="mini-card-caption">Serwerownia premium</span>
+          </div>
+        </div>
+        <p>Dashboard, szafy rack, porty, VLAN, IP, połączenia i roadmapa w jednym miejscu.</p>
+      </div>
+    </div>
+  </div>
+  <script src="/js/login.js"></script>
+</body>
+</html>
