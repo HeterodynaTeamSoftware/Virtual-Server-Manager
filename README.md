@@ -4,7 +4,6 @@
 
 Nie trzeba skakać między kilkoma panelami. W jednym miejscu masz serwerownie, szafy rack, urządzenia, porty, monitoring, mapę połączeń, terminal SSH i narzędzia administracyjne.
 
-[**⬇️ Pobierz program**](http://testpro.com.pl/wp-content/uploads/2026/04/virtual-server-manager-windows.zip) · [**Zobacz funkcje**](https://testpro.com.pl/virtual-serwer-menager/#funkcje)
 
 ## Panel główny
 
@@ -173,4 +172,4 @@ It brings server rooms, racks, devices, ports, monitoring, network maps, SSH acc
 
 ## License
 
-MIT
+GNU GPL v3.0 only
